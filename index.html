@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ec4899">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Love Roulette</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        @keyframes heartBeat {
+            0%, 100% { transform: scale(1); }
+            25% { transform: scale(1.1); }
+            50% { transform: scale(1); }
+            75% { transform: scale(1.15); }
+        }
+        @keyframes diceRoll {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(1); }
+            75% { transform: rotate(270deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        .heart-dice {
+            animation: heartBeat 2s ease-in-out infinite;
+        }
+        .dice-rolling {
+            animation: diceRoll 1s ease-in-out;
+        }
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Lucide React Icons as inline SVG components
+        const Heart = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+        );
+
+        const Play = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        );
+
+        const Plus = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+        );
+
+        const Trash2 = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+        );
+
+        const Clock = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        );
+
+        const Sparkles = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+        );
+
+        const SkipForward = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4v16l13-8L5 4zM19 5v14" />
+            </svg>
+        );
+
+        const Edit = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+        );
+
+        const Check = ({ className = "w-6 h-6" }) => (
+            <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+        );
+
+        // Animated Heart Dice Component
+        const HeartDice = ({ size = "w-20 h-20", isRolling = false }) => (
+            <div className={`relative ${size} ${isRolling ? 'dice-rolling' : 'heart-dice floating'}`}>
+                <svg viewBox="0 0 100 100" className="w-full h-full">
+                    {/* Dice background - rounded square */}
+                    <rect x="10" y="10" width="80" height="80" rx="15" 
+                          fill="url(#gradient)" 
+                          stroke="#ff1493" 
+                          strokeWidth="2"/>
+                    
+                    {/* Gradient definition */}
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style={{stopColor: '#ff69b4', stopOpacity: 1}} />
+                            <stop offset="100%" style={{stopColor: '#ff1493', stopOpacity: 1}} />
+                        </linearGradient>
+                    </defs>
+                    
+                    {/* Heart symbol in center */}
+                    <path 
+                        d="M 50 35 
+                           C 50 30, 45 25, 40 25
+                           C 35 25, 30 28, 30 35
+                           C 30 42, 35 47, 50 60
+                           C 65 47, 70 42, 70 35
+                           C 70 28, 65 25, 60 25
+                           C 55 25, 50 30, 50 35 Z"
+                        fill="white"
+                        stroke="none"
+                    />
+                    
+                    {/* Dice dots in corners for decoration */}
+                    <circle cx="20" cy="20" r="2.5" fill="white" opacity="0.6"/>
+                    <circle cx="80" cy="20" r="2.5" fill="white" opacity="0.6"/>
+                    <circle cx="20" cy="80" r="2.5" fill="white" opacity="0.6"/>
+                    <circle cx="80" cy="80" r="2.5" fill="white" opacity="0.6"/>
+                </svg>
+            </div>
+        );
+
+        // Audio notification
+        const playNotification = () => {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Gentle, sensual tone
+            oscillator.frequency.value = 440; // A note
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 1);
+        };
+
+        function LoveRoulette() {
+            const [screen, setScreen] = useState('welcome');
+            const [maleName, setMaleName] = useState('');
+            const [femaleName, setFemaleName] = useState('');
+            const [activitiesForHim, setActivitiesForHim] = useState([]);
+            const [activitiesForHer, setActivitiesForHer] = useState([]);
+            const [positions, setPositions] = useState([]);
+            const [finishers, setFinishers] = useState([]);
+            
+            const [currentActivity, setCurrentActivity] = useState('');
+            const [currentType, setCurrentType] = useState(''); // 'him', 'her', 'position', 'finisher'
+            const [isFinisher, setIsFinisher] = useState(false);
+            const [timeRemaining, setTimeRemaining] = useState(0);
+            const [isRunning, setIsRunning] = useState(false);
+            const [isBreak, setIsBreak] = useState(false);
+            const [breakTime, setBreakTime] = useState(15);
+            const [roundNumber, setRoundNumber] = useState(1);
+            
+            const [himInput, setHimInput] = useState('');
+            const [herInput, setHerInput] = useState('');
+            const [positionInput, setPositionInput] = useState('');
+            const [finisherInput, setFinisherInput] = useState('');
+            
+            const [gameSequence, setGameSequence] = useState([]);
+            const [sequenceIndex, setSequenceIndex] = useState(0);
+            
+            const [isRolling, setIsRolling] = useState(false);
+            
+            const timerRef = useRef(null);
+            const breakTimerRef = useRef(null);
+
+            // Timer logic
+            useEffect(() => {
+                if (isRunning && timeRemaining > 0) {
+                    timerRef.current = setInterval(() => {
+                        setTimeRemaining(prev => {
+                            if (prev <= 1) {
+                                playNotification();
+                                startBreak();
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+                } else {
+                    if (timerRef.current) clearInterval(timerRef.current);
+                }
+                return () => {
+                    if (timerRef.current) clearInterval(timerRef.current);
+                };
+            }, [isRunning, timeRemaining]);
+
+            // Break timer logic
+            useEffect(() => {
+                if (isBreak && breakTime > 0) {
+                    breakTimerRef.current = setInterval(() => {
+                        setBreakTime(prev => {
+                            if (prev <= 1) {
+                                startNextActivity();
+                                return 15;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+                } else {
+                    if (breakTimerRef.current) clearInterval(breakTimerRef.current);
+                }
+                return () => {
+                    if (breakTimerRef.current) clearInterval(breakTimerRef.current);
+                };
+            }, [isBreak, breakTime]);
+
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            const getRandomDuration = (type) => {
+                if (type === 'finisher') {
+                    return Math.floor(Math.random() * (300 - 120 + 1)) + 120; // 2-5 min
+                }
+                return Math.floor(Math.random() * (300 - 60 + 1)) + 60; // 1-5 min
+            };
+
+            const shuffleArray = (array) => {
+                const shuffled = [...array];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                return shuffled;
+            };
+
+            const buildGameSequence = () => {
+                const sequence = [];
+                const shuffledPositions = shuffleArray(positions);
+                const allActivities = [
+                    ...shuffleArray(activitiesForHim).map(a => ({ text: a, type: 'him' })),
+                    ...shuffleArray(activitiesForHer).map(a => ({ text: a, type: 'her' }))
+                ];
+                const shuffledActivities = shuffleArray(allActivities);
+                
+                let posIndex = 0;
+                let actIndex = 0;
+                let positionCounter = 0;
+                
+                // Build sequence: every 2-3 positions followed by an activity
+                while (posIndex < shuffledPositions.length || actIndex < shuffledActivities.length) {
+                    const positionsBeforeActivity = Math.floor(Math.random() * 2) + 2; // 2 or 3
+                    
+                    // Add 2-3 positions
+                    for (let i = 0; i < positionsBeforeActivity && posIndex < shuffledPositions.length; i++) {
+                        sequence.push({ text: shuffledPositions[posIndex], type: 'position' });
+                        posIndex++;
+                        positionCounter++;
+                    }
+                    
+                    // Add an activity
+                    if (actIndex < shuffledActivities.length) {
+                        sequence.push(shuffledActivities[actIndex]);
+                        actIndex++;
+                    }
+                }
+                
+                // Add finisher at the end
+                const randomFinisher = finishers[Math.floor(Math.random() * finishers.length)];
+                sequence.push({ text: randomFinisher, type: 'finisher' });
+                
+                return sequence;
+            };
+
+            const startGame = () => {
+                if (activitiesForHim.length === 0 && activitiesForHer.length === 0) {
+                    alert('Please add at least one activity!');
+                    return;
+                }
+                if (positions.length === 0) {
+                    alert('Please add at least one position!');
+                    return;
+                }
+                if (finishers.length === 0) {
+                    alert('Please add at least one finisher option!');
+                    return;
+                }
+                setScreen('game');
+                startNewRound();
+            };
+
+            const startNewRound = () => {
+                const newSequence = buildGameSequence();
+                setGameSequence(newSequence);
+                setSequenceIndex(0);
+                setIsBreak(true);
+                setBreakTime(15);
+                const firstItem = newSequence[0];
+                setCurrentActivity(firstItem.text);
+                setCurrentType(firstItem.type);
+                setIsFinisher(firstItem.type === 'finisher');
+            };
+
+            const startBreak = () => {
+                setIsRunning(false);
+                setIsRolling(true);
+                setTimeout(() => setIsRolling(false), 1000); // Roll animation lasts 1 second
+                setIsBreak(true);
+                setBreakTime(15);
+            };
+
+            const forceStart = () => {
+                setIsBreak(false);
+                setBreakTime(15);
+                startNextActivity();
+            };
+
+            const skipToNext = () => {
+                playNotification();
+                setIsRunning(false);
+                startBreak();
+            };
+
+            const startNextActivity = () => {
+                const nextIndex = sequenceIndex + 1;
+                
+                if (nextIndex >= gameSequence.length) {
+                    // Round complete, start new round
+                    setRoundNumber(prev => prev + 1);
+                    startNewRound();
+                } else {
+                    setSequenceIndex(nextIndex);
+                    const nextItem = gameSequence[nextIndex];
+                    setCurrentActivity(nextItem.text);
+                    setCurrentType(nextItem.type);
+                    setIsFinisher(nextItem.type === 'finisher');
+                    setTimeRemaining(getRandomDuration(nextItem.type));
+                    setIsRunning(true);
+                    setIsBreak(false);
+                }
+            };
+
+            const addActivityForHim = () => {
+                if (himInput.trim()) {
+                    setActivitiesForHim([...activitiesForHim, himInput.trim()]);
+                    setHimInput('');
+                }
+            };
+
+            const removeActivityForHim = (index) => {
+                setActivitiesForHim(activitiesForHim.filter((_, i) => i !== index));
+            };
+
+            const addActivityForHer = () => {
+                if (herInput.trim()) {
+                    setActivitiesForHer([...activitiesForHer, herInput.trim()]);
+                    setHerInput('');
+                }
+            };
+
+            const removeActivityForHer = (index) => {
+                setActivitiesForHer(activitiesForHer.filter((_, i) => i !== index));
+            };
+
+            const addPosition = () => {
+                if (positionInput.trim()) {
+                    setPositions([...positions, positionInput.trim()]);
+                    setPositionInput('');
+                }
+            };
+
+            const removePosition = (index) => {
+                setPositions(positions.filter((_, i) => i !== index));
+            };
+
+            const addFinisher = () => {
+                if (finisherInput.trim()) {
+                    setFinishers([...finishers, finisherInput.trim()]);
+                    setFinisherInput('');
+                }
+            };
+
+            const removeFinisher = (index) => {
+                setFinishers(finishers.filter((_, i) => i !== index));
+            };
+
+            // Welcome Screen
+            if (screen === 'welcome') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-pink-500 via-red-500 to-purple-600 p-4 flex items-center justify-center">
+                        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 space-y-6">
+                            <div className="text-center space-y-2">
+                                <div className="flex justify-center mb-4">
+                                    <HeartDice size="w-24 h-24" />
+                                </div>
+                                <h1 className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
+                                    Love Roulette
+                                </h1>
+                                <p className="text-gray-600">Where Passion Meets Play 🔥</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">His Name</label>
+                                    <input
+                                        type="text"
+                                        value={maleName}
+                                        onChange={(e) => setMaleName(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-pink-500 focus:outline-none text-lg"
+                                        placeholder="Enter name"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Her Name</label>
+                                    <input
+                                        type="text"
+                                        value={femaleName}
+                                        onChange={(e) => setFemaleName(e.target.value)}
+                                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-pink-500 focus:outline-none text-lg"
+                                        placeholder="Enter name"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        if (maleName.trim() && femaleName.trim()) {
+                                            setScreen('setup');
+                                        } else {
+                                            alert('Please enter both names!');
+                                        }
+                                    }}
+                                    className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all"
+                                >
+                                    Continue
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Setup Screen
+            if (screen === 'setup') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-pink-500 via-red-500 to-purple-600 p-4 overflow-y-auto pb-8">
+                        <div className="w-full max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-6 space-y-6 my-4">
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-gray-800">Customize Your Experience</h2>
+                                <p className="text-gray-600 text-sm mt-1">Add your preferences below</p>
+                            </div>
+
+                            {/* Activities for HIM */}
+                            <div className="space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-blue-500" />
+                                    Activities for {maleName}
+                                </h3>
+                                <p className="text-xs text-gray-500">What {maleName} will perform on {femaleName}</p>
+                                
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={himInput}
+                                        onChange={(e) => setHimInput(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && addActivityForHim()}
+                                        className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                                        placeholder="e.g., Sensual massage"
+                                    />
+                                    <button
+                                        onClick={addActivityForHim}
+                                        className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition-colors"
+                                    >
+                                        <Plus className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {activitiesForHim.map((activity, index) => (
+                                        <div key={index} className="flex items-center justify-between bg-blue-50 p-3 rounded-lg">
+                                            <span className="text-gray-800 flex-1 text-sm">{activity}</span>
+                                            <button
+                                                onClick={() => removeActivityForHim(index)}
+                                                className="text-red-500 hover:text-red-700 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500">{activitiesForHim.length} activities added</p>
+                            </div>
+
+                            {/* Activities for HER */}
+                            <div className="space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-pink-500" />
+                                    Activities for {femaleName}
+                                </h3>
+                                <p className="text-xs text-gray-500">What {femaleName} will perform on {maleName}</p>
+                                
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={herInput}
+                                        onChange={(e) => setHerInput(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && addActivityForHer()}
+                                        className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-pink-500 focus:outline-none"
+                                        placeholder="e.g., Gentle touch"
+                                    />
+                                    <button
+                                        onClick={addActivityForHer}
+                                        className="bg-pink-500 text-white p-2 rounded-lg hover:bg-pink-600 transition-colors"
+                                    >
+                                        <Plus className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {activitiesForHer.map((activity, index) => (
+                                        <div key={index} className="flex items-center justify-between bg-pink-50 p-3 rounded-lg">
+                                            <span className="text-gray-800 flex-1 text-sm">{activity}</span>
+                                            <button
+                                                onClick={() => removeActivityForHer(index)}
+                                                className="text-red-500 hover:text-red-700 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500">{activitiesForHer.length} activities added</p>
+                            </div>
+
+                            {/* Positions */}
+                            <div className="space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                    <Heart className="w-5 h-5 text-red-500 fill-red-500" />
+                                    Intimate Positions
+                                </h3>
+                                <p className="text-xs text-gray-500">Your favorite positions to explore together</p>
+                                
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={positionInput}
+                                        onChange={(e) => setPositionInput(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && addPosition()}
+                                        className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:outline-none"
+                                        placeholder="e.g., Missionary"
+                                    />
+                                    <button
+                                        onClick={addPosition}
+                                        className="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"
+                                    >
+                                        <Plus className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {positions.map((position, index) => (
+                                        <div key={index} className="flex items-center justify-between bg-red-50 p-3 rounded-lg">
+                                            <span className="text-gray-800 flex-1 text-sm">{position}</span>
+                                            <button
+                                                onClick={() => removePosition(index)}
+                                                className="text-red-500 hover:text-red-700 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500">{positions.length} positions added</p>
+                            </div>
+
+                            {/* Finishers */}
+                            <div className="space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-purple-500" />
+                                    Grand Finale
+                                </h3>
+                                <p className="text-xs text-gray-500">Where {maleName} can finish</p>
+                                
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={finisherInput}
+                                        onChange={(e) => setFinisherInput(e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && addFinisher()}
+                                        className="flex-1 px-3 py-2 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                                        placeholder="Add option..."
+                                    />
+                                    <button
+                                        onClick={addFinisher}
+                                        className="bg-purple-500 text-white p-2 rounded-lg hover:bg-purple-600 transition-colors"
+                                    >
+                                        <Plus className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="space-y-2 max-h-32 overflow-y-auto">
+                                    {finishers.map((finisher, index) => (
+                                        <div key={index} className="flex items-center justify-between bg-purple-50 p-3 rounded-lg">
+                                            <span className="text-gray-800 flex-1 text-sm">{finisher}</span>
+                                            <button
+                                                onClick={() => removeFinisher(index)}
+                                                className="text-red-500 hover:text-red-700 transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p className="text-xs text-gray-500">{finishers.length} options added</p>
+                            </div>
+
+                            <button
+                                onClick={() => setScreen('review')}
+                                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-2"
+                            >
+                                Review & Start
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Review Screen
+            if (screen === 'review') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-pink-500 via-red-500 to-purple-600 p-4 overflow-y-auto pb-8">
+                        <div className="w-full max-w-md mx-auto bg-white rounded-3xl shadow-2xl p-6 space-y-6 my-4">
+                            <div className="text-center">
+                                <h2 className="text-2xl font-bold text-gray-800">Review Your Setup</h2>
+                                <p className="text-gray-600 text-sm mt-1">Everything looks good?</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-xl">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="font-semibold text-gray-800">Players</h3>
+                                    </div>
+                                    <p className="text-gray-700">{maleName} & {femaleName}</p>
+                                </div>
+
+                                <div className="bg-blue-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-gray-800 mb-2">Activities for {maleName}: {activitiesForHim.length}</h3>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                        {activitiesForHim.slice(0, 3).map((a, i) => (
+                                            <div key={i}>• {a}</div>
+                                        ))}
+                                        {activitiesForHim.length > 3 && <div className="text-gray-500 italic">...and {activitiesForHim.length - 3} more</div>}
+                                    </div>
+                                </div>
+
+                                <div className="bg-pink-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-gray-800 mb-2">Activities for {femaleName}: {activitiesForHer.length}</h3>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                        {activitiesForHer.slice(0, 3).map((a, i) => (
+                                            <div key={i}>• {a}</div>
+                                        ))}
+                                        {activitiesForHer.length > 3 && <div className="text-gray-500 italic">...and {activitiesForHer.length - 3} more</div>}
+                                    </div>
+                                </div>
+
+                                <div className="bg-red-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-gray-800 mb-2">Positions: {positions.length}</h3>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                        {positions.slice(0, 3).map((p, i) => (
+                                            <div key={i}>• {p}</div>
+                                        ))}
+                                        {positions.length > 3 && <div className="text-gray-500 italic">...and {positions.length - 3} more</div>}
+                                    </div>
+                                </div>
+
+                                <div className="bg-purple-50 p-4 rounded-xl">
+                                    <h3 className="font-semibold text-gray-800 mb-2">Finale Options: {finishers.length}</h3>
+                                    <div className="text-sm text-gray-600 space-y-1">
+                                        {finishers.slice(0, 3).map((f, i) => (
+                                            <div key={i}>• {f}</div>
+                                        ))}
+                                        {finishers.length > 3 && <div className="text-gray-500 italic">...and {finishers.length - 3} more</div>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setScreen('setup')}
+                                    className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Edit className="w-5 h-5" />
+                                    Edit
+                                </button>
+                                <button
+                                    onClick={startGame}
+                                    className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Play className="w-5 h-5" />
+                                    Start Game
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Game Screen - Break Period
+            if (isBreak) {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-pink-500 via-red-500 to-purple-600 p-4 flex items-center justify-center">
+                        <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+                            <div className="text-center space-y-2">
+                                <div className="inline-block bg-gradient-to-r from-pink-500 to-purple-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
+                                    Round {roundNumber}
+                                </div>
+                                <div className="text-gray-600 text-sm">
+                                    {maleName} & {femaleName}
+                                </div>
+                            </div>
+
+                            <div className="text-center space-y-4">
+                                <div className="inline-block">
+                                    <HeartDice size="w-16 h-16" isRolling={isRolling} />
+                                </div>
+                                
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                        {currentType === 'finisher' ? '🎆 Grand Finale' : 
+                                         currentType === 'position' ? '💕 Next Position' :
+                                         currentType === 'him' ? `🔥 ${maleName}'s Turn` :
+                                         `💖 ${femaleName}'s Turn`}
+                                    </h3>
+                                    <p className="text-2xl font-bold text-gray-800 min-h-[4rem] flex items-center justify-center px-4">
+                                        {currentActivity}
+                                    </p>
+                                </div>
+
+                                <div className="bg-gradient-to-r from-orange-100 to-yellow-100 rounded-2xl p-8">
+                                    <Clock className="w-8 h-8 mx-auto mb-3 text-orange-600" />
+                                    <div className="text-6xl font-bold text-gray-800 tracking-tight">
+                                        {breakTime}
+                                    </div>
+                                    <p className="text-sm text-gray-600 mt-2">Starting in...</p>
+                                </div>
+
+                                <button
+                                    onClick={forceStart}
+                                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Play className="w-6 h-6" />
+                                    Start Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // Game Screen - Activity Running
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-pink-500 via-red-500 to-purple-600 p-4 flex items-center justify-center">
+                    <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8 space-y-8">
+                        <div className="text-center space-y-2">
+                            <div className="flex justify-center mb-2">
+                                <HeartDice size="w-12 h-12" />
+                            </div>
+                            <div className="inline-block bg-gradient-to-r from-pink-500 to-purple-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
+                                Round {roundNumber}
+                            </div>
+                            <div className="text-gray-600 text-sm">
+                                {maleName} & {femaleName}
+                            </div>
+                        </div>
+
+                        <div className="text-center space-y-4">
+                            <div className="inline-block">
+                                {currentType === 'finisher' ? (
+                                    <Sparkles className="w-12 h-12 text-purple-500 mx-auto animate-pulse" />
+                                ) : currentType === 'position' ? (
+                                    <Heart className="w-12 h-12 text-red-500 mx-auto animate-pulse fill-red-500" />
+                                ) : currentType === 'him' ? (
+                                    <Sparkles className="w-12 h-12 text-blue-500 mx-auto animate-pulse" />
+                                ) : (
+                                    <Sparkles className="w-12 h-12 text-pink-500 mx-auto animate-pulse" />
+                                )}
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    {currentType === 'finisher' ? '🎆 Grand Finale' : 
+                                     currentType === 'position' ? '💕 Current Position' :
+                                     currentType === 'him' ? `🔥 ${maleName}'s Turn` :
+                                     `💖 ${femaleName}'s Turn`}
+                                </h3>
+                                <p className="text-2xl font-bold text-gray-800 min-h-[4rem] flex items-center justify-center px-4">
+                                    {currentActivity}
+                                </p>
+                            </div>
+
+                            <div className="bg-gradient-to-r from-pink-100 to-purple-100 rounded-2xl p-8">
+                                <Clock className="w-8 h-8 mx-auto mb-3 text-gray-600" />
+                                <div className="text-6xl font-bold text-gray-800 tracking-tight">
+                                    {formatTime(timeRemaining)}
+                                </div>
+                                <p className="text-sm text-gray-600 mt-2">Time Remaining</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={skipToNext}
+                            className="w-full bg-gradient-to-r from-orange-400 to-orange-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-2"
+                        >
+                            <SkipForward className="w-5 h-5" />
+                            Next Activity
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setIsRunning(false);
+                                setScreen('welcome');
+                                setActivitiesForHim([]);
+                                setActivitiesForHer([]);
+                                setPositions([]);
+                                setFinishers([]);
+                                setRoundNumber(1);
+                                setMaleName('');
+                                setFemaleName('');
+                            }}
+                            className="w-full bg-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+                        >
+                            End Game
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the app
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<LoveRoulette />);
+    </script>
+</body>
+</html>
